@@ -1,0 +1,2 @@
+# SegmentedPagerViewController
+ViewPager for iOS
