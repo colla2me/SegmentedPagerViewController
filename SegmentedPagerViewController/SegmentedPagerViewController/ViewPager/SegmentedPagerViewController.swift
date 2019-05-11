@@ -15,21 +15,33 @@ import UIKit
 
 class SegmentedPagerViewController: UIViewController {
     
-    private var mainScrollView: PagerScrollView!
-    
-    private var headerView: PagerHeaderView!
-    
-    private var tabStripView: UIView!
-    
-    private var viewPager: ViewPager!
-    
-    private var safeAreaTopConstraint: NSLayoutConstraint?
-    
     private var contentOffsetObservation: NSKeyValueObservation?
+    private var mainScrollView: PagerScrollView!
+    private(set) var viewPager: ViewPager!
+    private let pagerHeader = PagerHeaderView()
+    private let tabStripView = UIView()
+    
+    var segmentedControl: UIView! {
+        didSet {
+            oldValue?.removeFromSuperview()
+            tabStripView.addSubview(segmentedControl)
+            segmentedControl.constraintToSuperview()
+        }
+    }
+    
+    var headerView: UIView! {
+        didSet {
+            pagerHeader.config(headerView, viewPager: viewPager)
+        }
+    }
+    
+    var headerHeight: CGFloat = 200.0
+    
+    var tabStripHeight: CGFloat = 40.0
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        setup()
+        setupPager()
         viewPager.reloadViewControllers()
     }
     
@@ -40,45 +52,47 @@ class SegmentedPagerViewController: UIViewController {
     
     override func updateViewConstraints() {
         super.updateViewConstraints()
+        NSLayoutConstraint.activate([
+            pagerHeader.topAnchor.constraint(equalTo: mainScrollView.topAnchor, constant: topLayoutLength),
+            pagerHeader.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            pagerHeader.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            pagerHeader.heightAnchor.constraint(equalToConstant: headerHeight)
+        ])
         
-        headerView.topConstraint = headerView.topAnchor.constraint(equalTo: mainScrollView.topAnchor, constant: topLayoutLength)
-        headerView.leadingConstraint = headerView.leadingAnchor.constraint(equalTo: view.leadingAnchor)
-        headerView.trailingConstraint = headerView.trailingAnchor.constraint(equalTo: view.trailingAnchor)
-        headerView.heightConstraint = headerView.heightAnchor.constraint(equalToConstant: headerHeight)
-        
-        let topConstraint = tabStripView.topAnchor.constraint(equalTo: headerView.bottomAnchor)
+        let topConstraint = tabStripView.topAnchor.constraint(equalTo: pagerHeader.bottomAnchor)
         topConstraint.priority = UILayoutPriority(rawValue: 999)
-        tabStripView.topConstraint = topConstraint
-        safeAreaTopConstraint?.isActive = false
+        var safeAreaTopConstraint: NSLayoutConstraint!
         if #available(iOS 11, *) {
             safeAreaTopConstraint = tabStripView.topAnchor.constraint(greaterThanOrEqualTo: view.safeAreaLayoutGuide.topAnchor)
         } else {
             safeAreaTopConstraint = tabStripView.topAnchor.constraint(greaterThanOrEqualTo: topLayoutGuide.bottomAnchor)
         }
-        safeAreaTopConstraint?.isActive = true
-        tabStripView.centerXConstraint = tabStripView.centerXAnchor.constraint(equalTo: view.centerXAnchor)
-//        tabStripView.leadingConstraint = tabStripView.leadingAnchor.constraint(equalTo: view.leadingAnchor)
-//        tabStripView.trailingConstraint = tabStripView.trailingAnchor.constraint(equalTo: view.trailingAnchor)
-//        tabStripView.heightConstraint = tabStripView.heightAnchor.constraint(equalToConstant: tabStripHeight)
+        NSLayoutConstraint.activate([
+            topConstraint,
+            safeAreaTopConstraint,
+            tabStripView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            tabStripView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            tabStripView.heightAnchor.constraint(equalToConstant: tabStripHeight)
+        ])
         
-        viewPager.topConstraint = viewPager.topAnchor.constraint(equalTo: tabStripView.bottomAnchor)
-        viewPager.leadingConstraint = viewPager.leadingAnchor.constraint(equalTo: view.leadingAnchor)
-        viewPager.trailingConstraint = viewPager.trailingAnchor.constraint(equalTo: view.trailingAnchor)
-        viewPager.heightConstraint = viewPager.heightAnchor.constraint(equalToConstant: contentHeight)
-        
+        NSLayoutConstraint.activate([
+            viewPager.topAnchor.constraint(equalTo: tabStripView.bottomAnchor),
+            viewPager.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            viewPager.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            viewPager.heightAnchor.constraint(equalToConstant: contentHeight)
+        ])
+
         mainScrollView.contentSize = CGSize(width: view.bounds.width, height: topLayoutLength + headerHeight + tabStripHeight + contentHeight + 1)
     }
-    
 
     func viewControllers(for pagerViewController: SegmentedPagerViewController) -> [PageContentViewController] {
         assertionFailure("viewControllers(for:) method must be overrided by subclass")
         return []
     }
-}
-
-private extension SegmentedPagerViewController {
     
-    func setup() {
+    func segmentedPager(didShow childController: PageContentViewController, at index: Int) {}
+    
+    private func setupPager() {
         view.backgroundColor = .white
         mainScrollView = PagerScrollView(frame: view.bounds)
         mainScrollView.delegate = self
@@ -97,32 +111,19 @@ private extension SegmentedPagerViewController {
         viewPager.translatesAutoresizingMaskIntoConstraints = false
         mainScrollView.addSubview(viewPager)
         
-        headerView = PagerHeaderView()
-        headerView.backgroundColor = .white
-        headerView.translatesAutoresizingMaskIntoConstraints = false
-        let innerHeaderView = UIView()
-        innerHeaderView.backgroundColor = .orange
-        headerView.config(innerHeaderView, viewPager: viewPager)
-        mainScrollView.addSubview(headerView)
+        pagerHeader.translatesAutoresizingMaskIntoConstraints = false
+        mainScrollView.addSubview(pagerHeader)
         
-        let segmentedControl = UISegmentedControl(items: ["segment-01", "segment-02", "segment-03"])
-        segmentedControl.selectedSegmentIndex = 0
-        segmentedControl.addTarget(self, action: #selector(segmentChanged), for: .valueChanged)
-        tabStripView = segmentedControl
         tabStripView.translatesAutoresizingMaskIntoConstraints = false
         mainScrollView.addSubview(tabStripView)
         
-        headerView.layer.zPosition = -3
+        pagerHeader.layer.zPosition = -3
         viewPager.layer.zPosition = -2
         tabStripView.layer.zPosition = -1
     }
     
     private func updateContentSize() {
         mainScrollView.contentSize = CGSize(width: view.bounds.width, height: topLayoutLength + headerHeight + tabStripHeight + contentHeight + 1)
-    }
-    
-    @objc private func segmentChanged(_ sender: UISegmentedControl) {
-        viewPager.moveToViewController(at: sender.selectedSegmentIndex, animated: true)
     }
 }
 
@@ -159,15 +160,6 @@ private extension SegmentedPagerViewController {
     var contentHeight: CGFloat {
         return view.bounds.height - topLayoutLength - tabStripHeight
     }
-    
-    var headerHeight: CGFloat {
-        return 200.0
-    }
-    
-    var tabStripHeight: CGFloat {
-        return tabStripView.bounds.height
-    }
-
 }
 
 extension SegmentedPagerViewController {
@@ -178,7 +170,7 @@ extension SegmentedPagerViewController {
             let sillHeight: CGFloat = headerHeight
             if offsetY >= sillHeight {
                 scrollView.contentOffset = CGPoint(x: 0, y: sillHeight)
-                viewPager.currentChild?.scrollView?.markAsScrollable = true
+                viewPager.visibleController?.scrollView?.markAsScrollable = true
                 scrollView.markAsScrollable = false
             } else {
                 if scrollView.markAsScrollable == false {
@@ -230,6 +222,8 @@ extension SegmentedPagerViewController: ViewPagerDataSource, ViewPagerDelegate {
         if mainScrollView.contentOffset.y == 0 {
             scrollView.setContentOffset(.zero, animated: false)
         }
+        
+        segmentedPager(didShow: childController, at: index)
     }
     
     func viewPagerWillBeginDragging(_ scrollView: UIScrollView) {

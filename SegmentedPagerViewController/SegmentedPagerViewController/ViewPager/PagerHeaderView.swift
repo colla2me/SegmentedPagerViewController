@@ -13,12 +13,11 @@ class PagerHeaderView: UIView {
     private weak var lastHeaderView: UIView?
     private weak var viewPager: ViewPager?
     
-    func config(_ headerView: UIView?, viewPager: ViewPager) {
+    func config(_ headerView: UIView, viewPager: ViewPager) {
         if let lastHeaderView = lastHeaderView {
             lastHeaderView.removeAllConstraints()
             lastHeaderView.removeFromSuperview()
         }
-        guard let headerView = headerView else { return }
         self.viewPager = viewPager
         addSubview(headerView)
         headerView.constraintToSuperview()
@@ -28,7 +27,7 @@ class PagerHeaderView: UIView {
     override func hitTest(_ point: CGPoint, with event: UIEvent?) -> UIView? {
         let view = super.hitTest(point, with: event)
         guard let viewPager = viewPager else { return view }
-        guard let childController = viewPager.currentChild else { return view }
+        guard let childController = viewPager.visibleController else { return view }
         if view is UIControl { return view }
         
         if !(view?.gestureRecognizers?.isEmpty ?? true) {

@@ -44,22 +44,37 @@ final class ViewPager: UIView {
     
     weak var parent: UIViewController?
     
-    private(set) weak var currentChild: PageContentViewController?
+    private(set) weak var visibleController: PageContentViewController?
     
     override init(frame: CGRect) {
         super.init(frame: frame)
-        setup()
+        setupScrollView()
     }
     
     required init?(coder aDecoder: NSCoder) {
         super.init(coder: aDecoder)
-        setup()
+        setupScrollView()
     }
     
     override func layoutSubviews() {
         super.layoutSubviews()
         lastSize = scrollView.bounds.size
         updateContentIfNeed()
+    }
+    
+    private func setupScrollView() {
+        addSubview(scrollView)
+        if #available(iOS 11.0, *) {
+            scrollView.contentInsetAdjustmentBehavior = .never
+        }
+        scrollView.constraintToSuperview()
+        scrollView.delegate = self
+        scrollView.isScrollEnabled = true
+        scrollView.isPagingEnabled = true
+        scrollView.showsHorizontalScrollIndicator = false
+        scrollView.showsVerticalScrollIndicator = false
+        scrollView.backgroundColor = .clear
+        backgroundColor = .white
     }
 }
 
@@ -75,12 +90,6 @@ extension ViewPager {
         }
         
         self.viewControllers = viewControllers as! [UIViewController]
-        
-//        let childController = self.viewControllers[currentIndex]
-//        parent.addChild(childController)
-//        childController.view.autoresizingMask = [.flexibleHeight, .flexibleWidth]
-//        scrollView.addSubview(childController.view)
-//        childController.didMove(toParent: parent)
     }
     
     func reloadViewPager() {
@@ -108,18 +117,8 @@ extension ViewPager {
         guard isViewLoaded else { // && !lastSize.equalTo(scrollView.bounds.size)
             return
         }
-        
-        guard scrollView.frame != .zero else {
-            return
-        }
-        
-        guard let parent = parent else {
-            return
-        }
-        
-        guard !viewControllers.isEmpty else {
-            return
-        }
+        guard scrollView.frame != .zero else { return }
+        guard !viewControllers.isEmpty else { return }
         
         if lastSize.width != scrollView.bounds.size.width {
             lastSize = scrollView.bounds.size
@@ -138,7 +137,7 @@ extension ViewPager {
                     childController.view.autoresizingMask = [.flexibleHeight, .flexibleWidth]
                 } else {
                     childController.beginAppearanceTransition(true, animated: false)
-                    parent.addChild(childController)
+                    parent?.addChild(childController)
                     childController.view.frame = CGRect(x: offset(forChildAt: index), y: 0, width: scrollView.bounds.width, height: scrollView.bounds.height)
                     childController.view.autoresizingMask = [.flexibleHeight, .flexibleWidth]
                     scrollView.addSubview(childController.view)
@@ -162,7 +161,7 @@ extension ViewPager {
         
         let childController = pageViewControllers[currentIndex] as! PageContentViewController
         delegate?.viewPager(didShow: childController, at: currentIndex)
-        currentChild = childController
+        visibleController = childController
     }
     
     func moveToViewController(at index: Int, animated: Bool = true) {
@@ -198,25 +197,6 @@ private extension ViewPager {
     var isViewLoaded: Bool {
         return superview != nil && parent?.isViewLoaded == true
     }
-    
-    func setup() {
-        addSubview(scrollView)
-        if #available(iOS 11.0, *) {
-            scrollView.contentInsetAdjustmentBehavior = .never
-        }
-        scrollView.constraintToSuperview()
-        scrollView.delegate = self
-        scrollView.isScrollEnabled = true
-        scrollView.isPagingEnabled = true
-        scrollView.showsHorizontalScrollIndicator = false
-        scrollView.showsVerticalScrollIndicator = false
-        scrollView.backgroundColor = .clear
-        backgroundColor = .white
-    }
-    
-//    func layoutChildControllers() {
-//
-//    }
     
     func canMove(to index: Int) -> Bool {
         return currentIndex != index && viewControllers.count > index
@@ -285,7 +265,7 @@ extension ViewPager: UIScrollViewDelegate {
     }
     
     func scrollViewShouldScrollToTop(_ scrollView: UIScrollView) -> Bool {
-        currentChild?.scrollView?.setContentOffset(.zero, animated: true)
+        visibleController?.scrollView?.setContentOffset(.zero, animated: true)
         return true
     }
 }
